@@ -1,0 +1,9 @@
+# Mirrors the allowlist pattern from your HA MCP deployment.
+# NOTE: not yet wired into app.py — this is the intended shape, not
+# enforced. Add a check against this list inside a FastMCP before-call
+# hook to actually gate it.
+allowed_tools:
+  - create_test_run
+  - log_test_result
+  - optimize
+  - get_active_profile

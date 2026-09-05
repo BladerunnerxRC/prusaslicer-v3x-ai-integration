@@ -1,0 +1,72 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: printopt-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: printopt
+      POSTGRES_USER: printopt
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - printopt-db-data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    networks:
+      - printopt-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U printopt"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: printopt-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://printopt:${POSTGRES_PASSWORD}@db:5432/printopt
+    volumes:
+      - ./backend/allowlist.yaml:/app/allowlist.yaml:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - printopt-internal
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.printopt-api.rule=Host(`printopt.shome`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.printopt-api.entrypoints=websecure"
+      - "traefik.http.routers.printopt-api.tls=true"
+      - "traefik.http.routers.printopt-api.priority=10"
+      - "traefik.http.services.printopt-api.loadbalancer.server.port=8000"
+      - "traefik.http.routers.printopt-mcp.rule=Host(`mcp.printopt.shome`)"
+      - "traefik.http.routers.printopt-mcp.entrypoints=websecure"
+      - "traefik.http.routers.printopt-mcp.tls=true"
+      - "traefik.http.services.printopt-mcp.loadbalancer.server.port=8000"
+      # - "traefik.http.routers.printopt-api.tls.certresolver=step-ca"
+
+  web:
+    build: ./web
+    container_name: printopt-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.printopt-web.rule=Host(`printopt.shome`)"
+      - "traefik.http.routers.printopt-web.entrypoints=websecure"
+      - "traefik.http.routers.printopt-web.tls=true"
+      - "traefik.http.services.printopt-web.loadbalancer.server.port=80"
+
+networks:
+  printopt-internal:
+    driver: bridge
+  traefik-public:
+    external: true
+
+volumes:
+  printopt-db-data:

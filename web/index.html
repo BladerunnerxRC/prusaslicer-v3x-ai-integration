@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Print Parameter Optimizer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 2rem; background: #111; color: #eee; }
+  select, button { padding: .4rem .6rem; margin-right: .5rem; }
+  table { border-collapse: collapse; margin-top: 1rem; width: 100%; }
+  th, td { border: 1px solid #333; padding: .4rem .6rem; text-align: left; }
+  tr { cursor: pointer; }
+  #chart { max-width: 700px; margin-top: 1rem; }
+</style>
+</head>
+<body>
+  <h1>Print Parameter Optimizer</h1>
+
+  <label>Printer <select id="printer"></select></label>
+  <label>Material <select id="material"></select></label>
+  <button id="loadBtn">Load</button>
+
+  <h2>Active Profile</h2>
+  <pre id="profile">—</pre>
+
+  <h2>Test Runs</h2>
+  <table id="runsTable"><thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Created</th></tr></thead><tbody></tbody></table>
+
+  <h2>Selected Run — Measurements</h2>
+  <canvas id="chart"></canvas>
+
+  <script>
+    const API = "/api";
+    let chart;
+
+    async function loadDropdowns() {
+      const printers = await (await fetch(`${API}/printers`)).json();
+      document.getElementById("printer").innerHTML =
+        printers.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+
+      const materials = await (await fetch(`${API}/materials`)).json();
+      document.getElementById("material").innerHTML =
+        materials.map(m => `<option value="${m.id}">${m.brand} ${m.material_type}</option>`).join("");
+    }
+
+    async function loadProfile(printerId, materialId) {
+      const res = await fetch(`${API}/profiles/${printerId}/${materialId}`);
+      document.getElementById("profile").textContent = res.ok
+        ? JSON.stringify(await res.json(), null, 2)
+        : "No active profile yet.";
+    }
+
+    async function loadRuns(printerId, materialId) {
+      const runs = await (await fetch(`${API}/test_runs?printer_id=${printerId}&material_id=${materialId}`)).json();
+      const tbody = document.querySelector("#runsTable tbody");
+      tbody.innerHTML = runs.map(r =>
+        `<tr data-id="${r.id}"><td>${r.id}</td><td>${r.test_type}</td><td>${r.status}</td><td>${r.created_at}</td></tr>`
+      ).join("");
+      tbody.querySelectorAll("tr").forEach(tr =>
+        tr.addEventListener("click", () => loadResults(tr.dataset.id))
+      );
+    }
+
+    async function loadResults(testRunId) {
+      const results = await (await fetch(`${API}/test_runs/${testRunId}/results`)).json();
+      const ctx = document.getElementById("chart");
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: "scatter",
+        data: { datasets: [{ label: "measured vs param",
+          data: results.map(r => ({ x: r.param_value, y: r.measured_value })) }] },
+        options: { scales: {
+          x: { title: { display: true, text: "param value" } },
+          y: { title: { display: true, text: "measured value" } },
+        } },
+      });
+    }
+
+    document.getElementById("loadBtn").addEventListener("click", () => {
+      const printerId = document.getElementById("printer").value;
+      const materialId = document.getElementById("material").value;
+      loadProfile(printerId, materialId);
+      loadRuns(printerId, materialId);
+    });
+
+    loadDropdowns();
+  </script>
+</body>
+</html>
