@@ -35,12 +35,20 @@
 
     async function loadDropdowns() {
       const printers = await (await fetch(`${API}/printers`)).json();
-      document.getElementById("printer").innerHTML =
-        printers.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+      document.getElementById("printer").replaceChildren(...printers.map(p => {
+        const option = document.createElement("option");
+        option.value = p.id;
+        option.textContent = p.name;
+        return option;
+      }));
 
       const materials = await (await fetch(`${API}/materials`)).json();
-      document.getElementById("material").innerHTML =
-        materials.map(m => `<option value="${m.id}">${m.brand} ${m.material_type}</option>`).join("");
+      document.getElementById("material").replaceChildren(...materials.map(m => {
+        const option = document.createElement("option");
+        option.value = m.id;
+        option.textContent = `${m.brand} ${m.material_type}`;
+        return option;
+      }));
     }
 
     async function loadProfile(printerId, materialId) {
@@ -53,12 +61,17 @@
     async function loadRuns(printerId, materialId) {
       const runs = await (await fetch(`${API}/test_runs?printer_id=${printerId}&material_id=${materialId}`)).json();
       const tbody = document.querySelector("#runsTable tbody");
-      tbody.innerHTML = runs.map(r =>
-        `<tr data-id="${r.id}"><td>${r.id}</td><td>${r.test_type}</td><td>${r.status}</td><td>${r.created_at}</td></tr>`
-      ).join("");
-      tbody.querySelectorAll("tr").forEach(tr =>
-        tr.addEventListener("click", () => loadResults(tr.dataset.id))
-      );
+      tbody.replaceChildren(...runs.map(r => {
+        const tr = document.createElement("tr");
+        tr.dataset.id = r.id;
+        for (const value of [r.id, r.test_type, r.status, r.created_at]) {
+          const td = document.createElement("td");
+          td.textContent = value;
+          tr.append(td);
+        }
+        tr.addEventListener("click", () => loadResults(tr.dataset.id));
+        return tr;
+      }));
     }
 
     async function loadResults(testRunId) {

@@ -34,6 +34,17 @@ Dashboard: `https://printopt.shome` (adjust Traefik labels in
 
 ## Contributing
 
+Dashboard regression test (Node.js required):
+
+```bash
+cd web
+npm install
+npx playwright install chromium
+npm test
+```
+
+To use an installed Edge browser instead, set `BROWSER_CHANNEL=msedge`.
+
 See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and discussion welcome.
 This repo doesn't accept direct pushes — fork and open a PR.
 
