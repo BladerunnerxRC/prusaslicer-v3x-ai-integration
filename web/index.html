@@ -16,6 +16,10 @@
 <body>
   <h1>Print Parameter Optimizer</h1>
 
+  <label>API token <input id="apiToken" type="password" autocomplete="off"></label>
+  <button id="connectBtn">Connect</button>
+  <p id="connectionStatus" role="status">Enter the configured API token to connect.</p>
+
   <label>Printer <select id="printer"></select></label>
   <label>Material <select id="material"></select></label>
   <button id="loadBtn">Load</button>
@@ -32,9 +36,24 @@
   <script>
     const API = "/api";
     let chart;
+    let apiToken = "";
+
+    async function apiFetch(path) {
+      const response = await fetch(`${API}${path}`, {
+        headers: { Authorization: `Bearer ${apiToken}` },
+        cache: "no-store",
+      });
+      if (response.status === 401) throw new Error("Invalid API token. Enter the configured token and reconnect.");
+      if (!response.ok && response.status !== 404) throw new Error(`API request failed (${response.status}).`);
+      return response;
+    }
+
+    function showError(error) {
+      document.getElementById("connectionStatus").textContent = error.message;
+    }
 
     async function loadDropdowns() {
-      const printers = await (await fetch(`${API}/printers`)).json();
+      const printers = await (await apiFetch("/printers")).json();
       document.getElementById("printer").replaceChildren(...printers.map(p => {
         const option = document.createElement("option");
         option.value = p.id;
@@ -42,7 +61,7 @@
         return option;
       }));
 
-      const materials = await (await fetch(`${API}/materials`)).json();
+      const materials = await (await apiFetch("/materials")).json();
       document.getElementById("material").replaceChildren(...materials.map(m => {
         const option = document.createElement("option");
         option.value = m.id;
@@ -52,14 +71,14 @@
     }
 
     async function loadProfile(printerId, materialId) {
-      const res = await fetch(`${API}/profiles/${printerId}/${materialId}`);
+      const res = await apiFetch(`/profiles/${printerId}/${materialId}`);
       document.getElementById("profile").textContent = res.ok
         ? JSON.stringify(await res.json(), null, 2)
         : "No active profile yet.";
     }
 
     async function loadRuns(printerId, materialId) {
-      const runs = await (await fetch(`${API}/test_runs?printer_id=${printerId}&material_id=${materialId}`)).json();
+      const runs = await (await apiFetch(`/test_runs?printer_id=${printerId}&material_id=${materialId}`)).json();
       const tbody = document.querySelector("#runsTable tbody");
       tbody.replaceChildren(...runs.map(r => {
         const tr = document.createElement("tr");
@@ -75,7 +94,15 @@
     }
 
     async function loadResults(testRunId) {
-      const results = await (await fetch(`${API}/test_runs/${testRunId}/results`)).json();
+      try {
+        await drawResults(testRunId);
+      } catch (error) {
+        showError(error);
+      }
+    }
+
+    async function drawResults(testRunId) {
+      const results = await (await apiFetch(`/test_runs/${testRunId}/results`)).json();
       const ctx = document.getElementById("chart");
       if (chart) chart.destroy();
       chart = new Chart(ctx, {
@@ -92,11 +119,20 @@
     document.getElementById("loadBtn").addEventListener("click", () => {
       const printerId = document.getElementById("printer").value;
       const materialId = document.getElementById("material").value;
-      loadProfile(printerId, materialId);
-      loadRuns(printerId, materialId);
+      loadProfile(printerId, materialId).catch(showError);
+      loadRuns(printerId, materialId).catch(showError);
     });
 
-    loadDropdowns();
+    document.getElementById("connectBtn").addEventListener("click", async () => {
+      apiToken = document.getElementById("apiToken").value;
+      document.getElementById("apiToken").value = "";
+      try {
+        await loadDropdowns();
+        document.getElementById("connectionStatus").textContent = "Connected.";
+      } catch (error) {
+        showError(error);
+      }
+    });
   </script>
 </body>
 </html>
