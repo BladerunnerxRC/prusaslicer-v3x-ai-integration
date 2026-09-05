@@ -15,6 +15,7 @@ import asyncpg
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from mcp.server.fastmcp import FastMCP
+from auth import BearerAuthMiddleware
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 
@@ -204,3 +205,6 @@ async def get_profile(printer_id: int, material_id: int):
 
 
 app.mount("/mcp", mcp.sse_app())
+
+# Wrap the complete app so mounted transports, aliases and redirects share the gate.
+app = BearerAuthMiddleware(app, os.environ.get("PRINTOPT_API_TOKEN", ""))

@@ -26,6 +26,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://printopt:${POSTGRES_PASSWORD}@db:5432/printopt
+      PRINTOPT_API_TOKEN: ${PRINTOPT_API_TOKEN:?set PRINTOPT_API_TOKEN in .env}
     volumes:
       - ./backend/allowlist.yaml:/app/allowlist.yaml:ro
     depends_on:
