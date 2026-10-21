@@ -1,3 +1,6 @@
+# Work in progress and depends on Prusa v3 gold release
+
+
 # PrusaSlicer v3.x AI Integration
 
 AI-driven parameter optimization for PrusaSlicer 3.0 calibration prints
